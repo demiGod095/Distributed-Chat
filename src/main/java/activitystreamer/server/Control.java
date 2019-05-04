@@ -12,6 +12,7 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import activitystreamer.util.Settings;
+import activitystreamer.util.Strings;
 
 public class Control extends Thread {
 	private static final Logger log = LogManager.getLogger();
@@ -49,7 +50,11 @@ public class Control extends Thread {
 		// make a connection to another server if remote hostname is supplied
 		if (Settings.getRemoteHostname() != null) {
 			try {
-				outgoingConnection(new Socket(Settings.getRemoteHostname(), Settings.getRemotePort()));
+				Connection outgoing = outgoingConnection(
+						new Socket(Settings.getRemoteHostname(), Settings.getRemotePort()));
+				if (outgoing instanceof ServerConnection) {
+					sendLagAgreement((ServerConnection) outgoing);
+				}
 			} catch (IOException e) {
 				log.error("failed to make connection to " + Settings.getRemoteHostname() + ":"
 						+ Settings.getRemotePort() + " :" + e);
@@ -58,10 +63,87 @@ public class Control extends Thread {
 		}
 	}
 
+	/**
+	 * Perform the wakeup, initializing the the state varibles, as per GHS
+	 * algorithm.
+	 * 
+	 */
+	private void performWakeup() {
+		// TODO implement Wakeup
+	}
+
+	/**
+	 * Send a Connect Message.
+	 * 
+	 */
+	private void sendConnect(ServerConnection serverCon) {
+		// TODO send connect message
+	}
+	
+	private void receiveConnect(int level, ServerConnection serverCon) {
+		// TODO process the receipt of a connect message
+	}
+	
+	private void receiveInitiate(int level, int newLevel, NodeState nodeState, ServerConnection serverCon) {
+		// TODO process the receipt of a initiate message
+	}
+	
+	private void respondTest(int level, NodeState nodeState, ServerConnection serverCon) {
+		// TODO process the receipt of a test message
+	}
+	
+	private void respondAccept(ServerConnection serverCon) {
+		// TODO process the receipt of an accept message
+	}
+	
+	private void respondReject(ServerConnection serverCon) {
+		// TODO process the receipt of a rejection message
+	}
+	
+	private void respondReport(int level, ServerConnection serverCon) {
+		// TODO process the receipt of a rejection message
+	}
+	
+	private void respondChangeCore(ServerConnection serverCon) {
+		// TODO process the receipt of a Change Core Message
+	}
+	
 	private JSONObject convertStringToJSON(String msg) throws ParseException {
 		JSONParser jparse = new JSONParser();
 		JSONObject json = (JSONObject) jparse.parse(msg);
 		return json;
+	}
+
+	/**
+	 * Used to get agreement on the lag value of the connection. with the other
+	 * node. This message specifies the lag parameter of the current connection.
+	 * 
+	 * @param con
+	 */
+	private void sendLagAgreement(ServerConnection con) {
+		JSONObject jobj = new JSONObject();
+		jobj.put(Strings.LAG_NEGOTIATE, Settings.LAG);
+		con.writeMsg(jobj.toJSONString());
+	}
+
+	/**
+	 * Used to get agreement on the lag value of the connection. with the other
+	 * node. This message specifies the lag parameter of the current connection.
+	 * 
+	 * @param con
+	 */
+	private void receiveLagAgreement(ServerConnection con, JSONObject jobj) {
+		int receivedLag = (int) (long) jobj.get(Strings.LAG_NEGOTIATE);
+		if (receivedLag > Settings.LAG) {
+			// The other node has a higher lag value. Therefore set the lag of our channel
+			// the received value
+			con.setLag(receivedLag);
+		} else {
+			// Increment Lag to avoid edges with the same values
+			Settings.setLag(Settings.LAG++);
+			con.setLag(Settings.getLag());
+		}
+		System.out.println("Connection lag " + con.getLag());
 	}
 
 	/**
@@ -78,6 +160,10 @@ public class Control extends Thread {
 				serverConnections.add(serverCon);
 				connections.remove(con);
 				System.out.println("New Server Connection");
+
+				// Perform Agreement on Lag for the connection
+				sendLagAgreement(serverCon);
+
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -112,16 +198,14 @@ public class Control extends Thread {
 
 		// Forward it to the other servers, after waiting our simulated
 		// lag
-		try {
-			Thread.sleep(Settings.getLag());
-			for (ServerConnection server : serverConnections) {
-				if (!(server.equals(con))) {
-					server.writeMsg(msgJSON.toJSONString());
-				}
+		for (ServerConnection server : serverConnections) {
+			if (!(server.equals(con))) {
+
+				LaggedMessage lagMsg = new LaggedMessage(msgJSON, server.getLag(), server);
+				Thread msgThread = new Thread(lagMsg);
+				msgThread.start();
+				// server.writeMsg(msgJSON.toJSONString());
 			}
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 	}
 
@@ -140,6 +224,12 @@ public class Control extends Thread {
 			if (msgJSON.containsKey(Settings.MESSAGE)) {
 				// A chat message from the client, process it
 				processMessage(con, msgJSON);
+			}
+			if (msgJSON.containsKey(Strings.LAG_NEGOTIATE)) {
+				// We have received the lag from the other node, so we perform negotiation
+				if (con instanceof ServerConnection) {
+					receiveLagAgreement((ServerConnection) con, msgJSON);
+				}
 			}
 		} catch (ParseException e) {
 			// We have an invalid message

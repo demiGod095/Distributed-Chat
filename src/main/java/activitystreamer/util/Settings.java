@@ -14,7 +14,7 @@ public class Settings {
 	private static String localHostname = "localhost";
 	private static String remoteHostname = null;
 	private static int remotePort = 3780;
-	private static int LAG = 100; // milliseconds
+	public static int LAG = 100; // milliseconds
 	
 	private static int activityInterval = 5000; // milliseconds
 	private static String secret = null;
