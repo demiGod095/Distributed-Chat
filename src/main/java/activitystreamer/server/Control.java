@@ -204,7 +204,6 @@ public class Control extends Thread {
 				LaggedMessage lagMsg = new LaggedMessage(msgJSON, server.getLag(), server);
 				Thread msgThread = new Thread(lagMsg);
 				msgThread.start();
-				// server.writeMsg(msgJSON.toJSONString());
 			}
 		}
 	}
@@ -286,7 +285,6 @@ public class Control extends Thread {
 				break;
 			}
 			if (!term) {
-				// log.debug("doing activity");
 				term = doActivity();
 			}
 
