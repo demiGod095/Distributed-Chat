@@ -17,6 +17,10 @@ import activitystreamer.util.Strings;
 public class Control extends Thread {
 	private static final Logger log = LogManager.getLogger();
 	private static ArrayList<Connection> connections;
+	
+	private int level;
+	private NodeState state;
+	private int foundCount = 0;
 
 	private ArrayList<ClientConnection> clientConnections = new ArrayList<ClientConnection>();
 	private ArrayList<ServerConnection> serverConnections = new ArrayList<ServerConnection>();
@@ -68,16 +72,37 @@ public class Control extends Thread {
 	 * algorithm.
 	 * 
 	 */
-	private void performWakeup() {
-		// TODO implement Wakeup
+	private void wakeup() {
+		level = 0;
+		state = new Found();
+		foundCount = 0;
+		
+		if (serverConnections.size() == 0) {
+			log.error("No Connections to any outgoing server");
+			return;
+		}
+		
+		// Search for the edge with the lowest weight
+		ServerConnection current = serverConnections.get(0);
+		for (ServerConnection serverCon : serverConnections) {
+			if (serverCon.getLag() < current.getLag()) {
+				current = serverCon;
+			}
+		}
+		
+		// Send a Connect message to that branch
+		sendConnect(current);		
 	}
 
 	/**
 	 * Send a Connect Message.
+	 * @param serverCon the connection to which to send the connect message to
 	 * 
 	 */
 	private void sendConnect(ServerConnection serverCon) {
-		// TODO send connect message
+		JSONObject jobj = new JSONObject();
+		jobj.put(Strings.CONNECT, level);
+		serverCon.writeMsg(jobj.toJSONString());
 	}
 	
 	private void receiveConnect(int level, ServerConnection serverCon) {
@@ -200,7 +225,6 @@ public class Control extends Thread {
 		// lag
 		for (ServerConnection server : serverConnections) {
 			if (!(server.equals(con))) {
-
 				LaggedMessage lagMsg = new LaggedMessage(msgJSON, server.getLag(), server);
 				Thread msgThread = new Thread(lagMsg);
 				msgThread.start();

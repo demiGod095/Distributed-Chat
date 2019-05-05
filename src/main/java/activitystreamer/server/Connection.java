@@ -23,6 +23,8 @@ public class Connection extends Thread {
 	private boolean open = false;
 	private Socket socket;
 	private boolean term = false;
+	
+	private ConnectionState connectionState;
 
 	Connection(Socket socket) throws IOException {
 		in = new DataInputStream(socket.getInputStream());
@@ -32,6 +34,14 @@ public class Connection extends Thread {
 		this.socket = socket;
 		open = true;
 		start();
+	}
+	
+	public void setConnectionState(ConnectionState conState) {
+		connectionState = conState;
+	}
+	
+	public ConnectionState getConnectionState() {
+		return connectionState;
 	}
 
 	/*
