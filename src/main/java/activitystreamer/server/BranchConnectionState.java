@@ -1,5 +1,11 @@
 package activitystreamer.server;
 
-public class BranchConnectionState extends ConnectionState {
+import activitystreamer.util.Strings;
 
+public class BranchConnectionState extends ConnectionState {
+    @Override
+    public String toString() { 
+        return Strings.BRANCH;
+    } 
+	
 }

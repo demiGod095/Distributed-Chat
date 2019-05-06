@@ -1,5 +1,10 @@
 package activitystreamer.server;
 
-public class Find extends NodeState {
+import activitystreamer.util.Strings;
 
+public class Find extends NodeState {
+    @Override
+    public String toString() { 
+        return Strings.FIND;
+    } 
 }

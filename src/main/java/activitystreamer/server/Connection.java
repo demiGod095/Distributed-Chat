@@ -23,7 +23,9 @@ public class Connection extends Thread {
 	private boolean open = false;
 	private Socket socket;
 	private boolean term = false;
-	
+
+	private boolean hasReceivedConnect;
+
 	private ConnectionState connectionState;
 
 	Connection(Socket socket) throws IOException {
@@ -32,14 +34,27 @@ public class Connection extends Thread {
 		inreader = new BufferedReader(new InputStreamReader(in));
 		outwriter = new PrintWriter(out, true);
 		this.socket = socket;
+		hasReceivedConnect = false;
 		open = true;
 		start();
 	}
-	
+
 	public void setConnectionState(ConnectionState conState) {
 		connectionState = conState;
 	}
+
+	public void resetReceivedConnect() {
+		hasReceivedConnect = false;
+	}
+
+	public void setReceivedConnect() {
+		hasReceivedConnect = true;
+	}
 	
+	public boolean getReceivedConnect() {
+		return hasReceivedConnect;
+	}
+
 	public ConnectionState getConnectionState() {
 		return connectionState;
 	}

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.UUID;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,9 +18,9 @@ import activitystreamer.util.Strings;
 public class Control extends Thread {
 	private static final Logger log = LogManager.getLogger();
 	private static ArrayList<Connection> connections;
-	
+
 	private int level;
-	private NodeState state;
+	private NodeState state = null;
 	private int foundCount = 0;
 
 	private ArrayList<ClientConnection> clientConnections = new ArrayList<ClientConnection>();
@@ -27,6 +28,9 @@ public class Control extends Thread {
 
 	private static boolean term = false;
 	private static Listener listener;
+
+	private UUID uuid;
+	private Identifier fragmentIdentifier;
 
 	protected static Control control = null;
 
@@ -40,6 +44,9 @@ public class Control extends Thread {
 	public Control() {
 		// initialize the connections array
 		connections = new ArrayList<Connection>();
+		uuid = UUID.randomUUID();
+		fragmentIdentifier = new Identifier(uuid, uuid);
+
 		// start a listener
 		try {
 			listener = new Listener();
@@ -58,6 +65,7 @@ public class Control extends Thread {
 						new Socket(Settings.getRemoteHostname(), Settings.getRemotePort()));
 				if (outgoing instanceof ServerConnection) {
 					sendLagAgreement((ServerConnection) outgoing);
+					sendUUID((ServerConnection) outgoing);
 				}
 			} catch (IOException e) {
 				log.error("failed to make connection to " + Settings.getRemoteHostname() + ":"
@@ -76,12 +84,12 @@ public class Control extends Thread {
 		level = 0;
 		state = new Found();
 		foundCount = 0;
-		
+
 		if (serverConnections.size() == 0) {
 			log.error("No Connections to any outgoing server");
 			return;
 		}
-		
+
 		// Search for the edge with the lowest weight
 		ServerConnection current = serverConnections.get(0);
 		for (ServerConnection serverCon : serverConnections) {
@@ -89,13 +97,14 @@ public class Control extends Thread {
 				current = serverCon;
 			}
 		}
-		
+
 		// Send a Connect message to that branch
-		sendConnect(current);		
+		sendConnect(current);
 	}
 
 	/**
 	 * Send a Connect Message.
+	 * 
 	 * @param serverCon the connection to which to send the connect message to
 	 * 
 	 */
@@ -104,35 +113,69 @@ public class Control extends Thread {
 		jobj.put(Strings.CONNECT, level);
 		serverCon.writeMsg(jobj.toJSONString());
 	}
-	
-	private void receiveConnect(int level, ServerConnection serverCon) {
+
+	private void receiveConnect(ServerConnection serverCon, JSONObject msgJSON) {
+		System.out.println("STATE " + state);
+		int level = (int) (long) msgJSON.get(Strings.CONNECT);
 		// TODO process the receipt of a connect message
+		if (state == null) {
+			wakeup();
+		}
+		if (level < this.level) {
+			log.debug("Merge with nodes " + serverCon.getIdentifier().getUUID1() + " and " + serverCon.getIdentifier().getUUID2());
+			serverCon.setConnectionState(new BranchConnectionState());
+			sendInitiate(serverCon, this.level, fragmentIdentifier, state);
+			if (state instanceof Find) {
+				foundCount++;
+			}
+			return;
+		} else if (serverCon.getConnectionState() instanceof BasicConnectionState) {
+			log.debug("Storing Received Connection");
+			// NOTE: POTENTIAL FOR DEVIATIONS FROM GHS HERE
+			// Store the result, but wait until another fragment forms
+			serverCon.setReceivedConnect();
+		} else {
+			sendInitiate(serverCon, this.level + 1, serverCon.getIdentifier(), new Find());
+		}
+
 	}
-	
+
+	private void sendInitiate(ServerConnection serverCon, int level, Identifier fragId, NodeState state) {
+		JSONObject firstLevel = new JSONObject();
+		JSONObject secondLevel = new JSONObject();
+
+		secondLevel.put(Strings.UUID1, fragId.getUUID1().toString());
+		secondLevel.put(Strings.UUID2, fragId.getUUID2().toString());
+		secondLevel.put(Strings.NODE_STATE, state.toString());
+
+		firstLevel.put(Strings.INITIATE, secondLevel);
+		serverCon.writeMsg(firstLevel.toJSONString());
+	}
+
 	private void receiveInitiate(int level, int newLevel, NodeState nodeState, ServerConnection serverCon) {
 		// TODO process the receipt of a initiate message
 	}
-	
+
 	private void respondTest(int level, NodeState nodeState, ServerConnection serverCon) {
 		// TODO process the receipt of a test message
 	}
-	
+
 	private void respondAccept(ServerConnection serverCon) {
 		// TODO process the receipt of an accept message
 	}
-	
+
 	private void respondReject(ServerConnection serverCon) {
 		// TODO process the receipt of a rejection message
 	}
-	
+
 	private void respondReport(int level, ServerConnection serverCon) {
 		// TODO process the receipt of a rejection message
 	}
-	
+
 	private void respondChangeCore(ServerConnection serverCon) {
 		// TODO process the receipt of a Change Core Message
 	}
-	
+
 	private JSONObject convertStringToJSON(String msg) throws ParseException {
 		JSONParser jparse = new JSONParser();
 		JSONObject json = (JSONObject) jparse.parse(msg);
@@ -148,6 +191,12 @@ public class Control extends Thread {
 	private void sendLagAgreement(ServerConnection con) {
 		JSONObject jobj = new JSONObject();
 		jobj.put(Strings.LAG_NEGOTIATE, Settings.LAG);
+		con.writeMsg(jobj.toJSONString());
+	}
+
+	private void sendUUID(ServerConnection con) {
+		JSONObject jobj = new JSONObject();
+		jobj.put(Strings.UUID, uuid.toString());
 		con.writeMsg(jobj.toJSONString());
 	}
 
@@ -187,8 +236,9 @@ public class Control extends Thread {
 				System.out.println("New Server Connection");
 
 				// Perform Agreement on Lag for the connection
+				// TODO Refactor these out.
 				sendLagAgreement(serverCon);
-
+				sendUUID(serverCon);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -232,6 +282,11 @@ public class Control extends Thread {
 		}
 	}
 
+	public void processUUIDmsg(ServerConnection con, JSONObject msgJson) {
+		UUID otherNodeUUID = UUID.fromString((String) msgJson.get(Strings.UUID));
+		con.setIdentifier(uuid, otherNodeUUID);
+	}
+
 	/*
 	 * Processing incoming messages from the connection. Return true if the
 	 * connection should close.
@@ -252,6 +307,19 @@ public class Control extends Thread {
 				// We have received the lag from the other node, so we perform negotiation
 				if (con instanceof ServerConnection) {
 					receiveLagAgreement((ServerConnection) con, msgJSON);
+
+					// Wakeup after receiving information on the lag.
+					wakeup();
+				}
+			}
+			if (msgJSON.containsKey(Strings.UUID)) {
+				if (con instanceof ServerConnection) {
+					processUUIDmsg((ServerConnection) con, msgJSON);
+				}
+			}
+			if (msgJSON.containsKey(Strings.CONNECT)) {
+				if (con instanceof ServerConnection) {
+					receiveConnect((ServerConnection) con, msgJSON);
 				}
 			}
 		} catch (ParseException e) {
@@ -290,8 +358,11 @@ public class Control extends Thread {
 		log.debug("outgoing connection: " + Settings.socketAddress(s));
 		ServerConnection c = new ServerConnection(s);
 		JSONObject jobj = new JSONObject();
+		JSONObject level2 = new JSONObject();
+
 		jobj.put(Settings.CONNECTION_TYPE, Settings.SERVER);
 		c.writeMsg(jobj.toJSONString());
+		System.out.println(jobj.toJSONString());
 		serverConnections.add(c);
 		return c;
 
