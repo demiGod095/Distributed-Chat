@@ -18,6 +18,7 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import activitystreamer.util.Settings;
+import activitystreamer.util.Strings;
 
 import static java.lang.StrictMath.toIntExact;
 
@@ -90,7 +91,7 @@ public class ClientSkeleton extends Thread {
 	/** Sends information specifing the Connection type to the server */
 	private void sendClientConnectionRequest() {
 		JSONObject obj = new JSONObject();
-		obj.put(Settings.CONNECTION_TYPE, CLIENT);
+		obj.put(Strings.CONNECTION_TYPE, CLIENT);
 		sendJsonOnSocket(obj);
 	}
 
@@ -107,8 +108,8 @@ public class ClientSkeleton extends Thread {
 					System.out.println("RECEIVED MESSAGE " + receivedMessage);
 					obj = (JSONObject) parse.parse(receivedMessage);
 					System.out.println("Received Object " + obj);
-					if (obj.containsKey(Settings.MESSAGE)) {
-						textFrame.setOutputText(obj.get(Settings.MESSAGE).toString());
+					if (obj.containsKey(Strings.MESSAGE)) {
+						textFrame.setOutputText(obj.get(Strings.MESSAGE).toString());
 					}
 
 					if (obj.containsKey("command")) {

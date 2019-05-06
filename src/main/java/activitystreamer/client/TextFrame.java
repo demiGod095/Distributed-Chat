@@ -26,6 +26,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
 import activitystreamer.util.Settings;
+import activitystreamer.util.Strings;
 
 
 @SuppressWarnings("serial")
@@ -90,7 +91,7 @@ public class TextFrame extends JFrame implements ActionListener {
 		if(e.getSource()==sendButton){
 			String msg = inputText.getText().trim().replaceAll("\r","").replaceAll("\n","").replaceAll("\t", "");
 			JSONObject obj = new JSONObject();
-			obj.put(Settings.MESSAGE, msg);
+			obj.put(Strings.MESSAGE, msg);
 			ClientSkeleton.getInstance().sendJsonOnSocket(obj);
 			
 		} else if(e.getSource()==disconnectButton){

@@ -27,6 +27,10 @@ public class Control extends Thread {
 	// For Client Connections
 	private static ArrayList<Connection> clientConenctions;
 
+	private Connection inBranch = null;
+	private Connection bestEdge = null;
+	private int bestWeight = -1;
+
 	private int level;
 	private NodeState state = null;
 	private int foundCount = 0;
@@ -141,11 +145,11 @@ public class Control extends Thread {
 
 	private void receiveConnect(Connection serverCon, JSONObject msgJSON) {
 		int level = (int) (long) msgJSON.get(Strings.CONNECT);
-		
+
 		if (state == null) {
 			wakeup();
 		}
-		
+
 		ServerConnectionInformation serverConI = (ServerConnectionInformation) serverCon.getConnectionInformation();
 		if (level < this.level) {
 
@@ -172,9 +176,10 @@ public class Control extends Thread {
 
 	/**
 	 * Sends an Initiate Message to the specified Server Connection
+	 * 
 	 * @param serverCon The Connection to send it to
-	 * @param level The Level to specify in the Initiate Request
-	 * @param fragId The Fragment Identifier
+	 * @param level     The Level to specify in the Initiate Request
+	 * @param fragId    The Fragment Identifier
 	 * @param state
 	 */
 	private void sendInitiate(Connection serverCon, int level, Identifier fragId, NodeState state) {
@@ -191,18 +196,45 @@ public class Control extends Thread {
 
 	/**
 	 * Process the receipt of an Initiate Message
+	 * 
 	 * @param level
 	 * @param newLevel
 	 * @param nodeState
 	 * @param serverCon
 	 */
-	private void receiveInitiate(int level, int newLevel, NodeState nodeState, Connection serverCon) {
+	private void receiveInitiate(int level, Identifier fragmentID, NodeState nodeState, Connection serverCon) {
 		// TODO process the receipt of a initiate message
+		this.level = level;
+		fragmentIdentifier = fragmentID;
+		state = nodeState;
+		inBranch = serverCon;
+		bestEdge = null;
+		bestWeight = -1;
+		// Go through all the server connections,
+		for (Connection con : serverConnections) {
+			if (serverCon.equals(con)) {
+				break;
+			}
+			if (serverCon.getConnectionState() instanceof BranchConnectionState) {
+				sendInitiate(con, level, fragmentID, nodeState);
+				if (nodeState instanceof Find) {
+					foundCount++;
+				}
+			}
+		}
+		if (nodeState instanceof Find) {
+			test();
+		}
+	}
+
+	/** Execute the test procedure */
+	private void test() {
 
 	}
 
 	/**
-	 * Respond to the recepit of a test message
+	 * Respond to the receipt of a test message
+	 * 
 	 * @param level
 	 * @param nodeState
 	 * @param serverCon
@@ -213,6 +245,7 @@ public class Control extends Thread {
 
 	/**
 	 * Respond to the receipt of an accept message
+	 * 
 	 * @param serverCon
 	 */
 	private void respondAccept(Connection serverCon) {
@@ -221,6 +254,7 @@ public class Control extends Thread {
 
 	/**
 	 * Respond to the receipt of an Reject message
+	 * 
 	 * @param serverCon
 	 */
 	private void respondReject(Connection serverCon) {
@@ -229,6 +263,7 @@ public class Control extends Thread {
 
 	/**
 	 * Respond to the receipt of an Report message
+	 * 
 	 * @param level
 	 * @param serverCon
 	 */
@@ -238,6 +273,7 @@ public class Control extends Thread {
 
 	/**
 	 * Respond to a change core message
+	 * 
 	 * @param serverCon
 	 */
 	private void respondChangeCore(Connection serverCon) {
@@ -265,7 +301,8 @@ public class Control extends Thread {
 		con.writeMsg(jobj.toJSONString());
 	}
 
-	/** Sends a message containing the UUID of the node
+	/**
+	 * Sends a message containing the UUID of the node
 	 * 
 	 * @param con
 	 */
@@ -351,6 +388,7 @@ public class Control extends Thread {
 
 	/**
 	 * Processes a message containing the UUID
+	 * 
 	 * @param con
 	 * @param msgJson
 	 */
