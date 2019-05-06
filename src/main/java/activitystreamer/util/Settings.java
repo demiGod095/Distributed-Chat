@@ -20,10 +20,6 @@ public class Settings {
 	private static String secret = null;
 	private static String username = "anonymous";
 	
-	public static String MESSAGE = "message";
-	public static String CONNECTION_TYPE = "connection_type";
-	public static String SERVER = "server";
-	public static String CLIENT = "client";
 
 	
 	public static int getLocalPort() {

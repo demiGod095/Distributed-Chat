@@ -18,13 +18,13 @@ import activitystreamer.util.Strings;
 public class Control extends Thread {
 
 	private static final Logger log = LogManager.getLogger();
-	// Arraylist for Undetermined Connections
+	// For Undetermined Connections
 	private static ArrayList<Connection> connections;
 
-	// Arraylist for Server Connections
+	// For Server Connections
 	private static ArrayList<Connection> serverConnections;
 
-	// Arraylist for Client Connections
+	// For Client Connections
 	private static ArrayList<Connection> clientConenctions;
 
 	private int level;
@@ -47,25 +47,28 @@ public class Control extends Thread {
 	}
 
 	public Control() {
-		// initialize the connections array
 		connections = new ArrayList<Connection>();
 		serverConnections = new ArrayList<Connection>();
 		clientConenctions = new ArrayList<Connection>();
+
 		uuid = UUID.randomUUID();
+
+		// Initially the node is just a fragment on its own. To represent this, we
+		// repeat the UUID twice.
 		fragmentIdentifier = new Identifier(uuid, uuid);
 
-		// start a listener
+		// start the listener
 		try {
 			listener = new Listener();
-			initiateConnection();
+			initiateRemoteConnections();
 		} catch (IOException e1) {
 			log.fatal("failed to startup a listening thread: " + e1);
 			System.exit(-1);
 		}
 	}
 
-	public void initiateConnection() {
-		// make a connection to another server if remote hostname is supplied
+	/** Makes a Connection to another server, if a remote hostname is supplied */
+	public void initiateRemoteConnections() {
 		if (Settings.getRemoteHostname() != null) {
 			try {
 				Connection outgoing = outgoingConnection(
@@ -73,7 +76,7 @@ public class Control extends Thread {
 				outgoing.setConnectionInformation(new ServerConnectionInformation());
 				sendLagAgreement(outgoing);
 				sendUUID(outgoing);
-			
+
 			} catch (IOException e) {
 				log.error("failed to make connection to " + Settings.getRemoteHostname() + ":"
 						+ Settings.getRemotePort() + " :" + e);
@@ -82,7 +85,7 @@ public class Control extends Thread {
 		}
 	}
 
-	/*
+	/**
 	 * A new outgoing connection has been established, and a reference is returned
 	 * to it
 	 */
@@ -90,7 +93,7 @@ public class Control extends Thread {
 		Connection c = new Connection(s);
 		JSONObject jobj = new JSONObject();
 		JSONObject level2 = new JSONObject();
-		jobj.put(Settings.CONNECTION_TYPE, Settings.SERVER);
+		jobj.put(Strings.CONNECTION_TYPE, Strings.SERVER);
 		c.writeMsg(jobj.toJSONString());
 		serverConnections.add(c);
 		return c;
@@ -137,17 +140,16 @@ public class Control extends Thread {
 	}
 
 	private void receiveConnect(Connection serverCon, JSONObject msgJSON) {
-		System.out.println("START CONNECT");
-		System.out.println("STATE " + state);
 		int level = (int) (long) msgJSON.get(Strings.CONNECT);
-		// TODO process the receipt of a connect message
+		
 		if (state == null) {
 			wakeup();
 		}
+		
 		ServerConnectionInformation serverConI = (ServerConnectionInformation) serverCon.getConnectionInformation();
 		if (level < this.level) {
 
-			log.debug("Merge with nodes " + serverConI.getIdentifier().getUUID1() + " and "
+			log.debug("Absorb Nodes " + serverConI.getIdentifier().getUUID1() + " and "
 					+ serverConI.getIdentifier().getUUID2());
 			serverCon.setConnectionState(new BranchConnectionState());
 			sendInitiate(serverCon, this.level, fragmentIdentifier, state);
@@ -161,13 +163,20 @@ public class Control extends Thread {
 			// Store the result, but wait until another fragment forms
 			serverCon.setReceivedConnect();
 		} else {
-			System.out.println("SERVER IDENTIFIER " + serverConI);
+			log.debug("Merge with nodes " + serverConI.getIdentifier().getUUID1() + " and "
+					+ serverConI.getIdentifier().getUUID2());
 			sendInitiate(serverCon, this.level + 1, serverConI.getIdentifier(), new Find());
 		}
-		System.out.println("FINISH CONNECT");
 
 	}
 
+	/**
+	 * Sends an Initiate Message to the specified Server Connection
+	 * @param serverCon The Connection to send it to
+	 * @param level The Level to specify in the Initiate Request
+	 * @param fragId The Fragment Identifier
+	 * @param state
+	 */
 	private void sendInitiate(Connection serverCon, int level, Identifier fragId, NodeState state) {
 		JSONObject firstLevel = new JSONObject();
 		JSONObject secondLevel = new JSONObject();
@@ -180,31 +189,64 @@ public class Control extends Thread {
 		serverCon.writeMsg(firstLevel.toJSONString());
 	}
 
+	/**
+	 * Process the receipt of an Initiate Message
+	 * @param level
+	 * @param newLevel
+	 * @param nodeState
+	 * @param serverCon
+	 */
 	private void receiveInitiate(int level, int newLevel, NodeState nodeState, Connection serverCon) {
 		// TODO process the receipt of a initiate message
 
 	}
 
+	/**
+	 * Respond to the recepit of a test message
+	 * @param level
+	 * @param nodeState
+	 * @param serverCon
+	 */
 	private void respondTest(int level, NodeState nodeState, Connection serverCon) {
 		// TODO process the receipt of a test message
 	}
 
+	/**
+	 * Respond to the receipt of an accept message
+	 * @param serverCon
+	 */
 	private void respondAccept(Connection serverCon) {
 		// TODO process the receipt of an accept message
 	}
 
+	/**
+	 * Respond to the receipt of an Reject message
+	 * @param serverCon
+	 */
 	private void respondReject(Connection serverCon) {
 		// TODO process the receipt of a rejection message
 	}
 
+	/**
+	 * Respond to the receipt of an Report message
+	 * @param level
+	 * @param serverCon
+	 */
 	private void respondReport(int level, Connection serverCon) {
 		// TODO process the receipt of a rejection message
 	}
 
+	/**
+	 * Respond to a change core message
+	 * @param serverCon
+	 */
 	private void respondChangeCore(Connection serverCon) {
 		// TODO process the receipt of a Change Core Message
 	}
 
+	/**
+	 * Converts the String contained into a JSONObject
+	 */
 	private JSONObject convertStringToJSON(String msg) throws ParseException {
 		JSONParser jparse = new JSONParser();
 		JSONObject json = (JSONObject) jparse.parse(msg);
@@ -223,6 +265,10 @@ public class Control extends Thread {
 		con.writeMsg(jobj.toJSONString());
 	}
 
+	/** Sends a message containing the UUID of the node
+	 * 
+	 * @param con
+	 */
 	private void sendUUID(Connection con) {
 		JSONObject jobj = new JSONObject();
 		jobj.put(Strings.UUID, uuid.toString());
@@ -254,8 +300,8 @@ public class Control extends Thread {
 	 * the server
 	 */
 	private synchronized void setConnectionType(Connection con, JSONObject jobj) {
-		String typeStr = jobj.get(Settings.CONNECTION_TYPE).toString();
-		if (typeStr.equals(Settings.SERVER)) {
+		String typeStr = jobj.get(Strings.CONNECTION_TYPE).toString();
+		if (typeStr.equals(Strings.SERVER)) {
 			// Create a new Server Connection
 			connections.remove(con);
 			con.setConnectionInformation(new ServerConnectionInformation());
@@ -269,7 +315,7 @@ public class Control extends Thread {
 			sendUUID(con);
 			System.out.println("Processed Server");
 		}
-		if (typeStr.equals(Settings.CLIENT)) {
+		if (typeStr.equals(Strings.CLIENT)) {
 			clientConenctions.add(con);
 			connections.remove(con);
 			System.out.println("New Client Connection");
@@ -303,6 +349,11 @@ public class Control extends Thread {
 		}
 	}
 
+	/**
+	 * Processes a message containing the UUID
+	 * @param con
+	 * @param msgJson
+	 */
 	public void processUUIDmsg(Connection con, JSONObject msgJson) {
 		UUID otherNodeUUID = UUID.fromString((String) msgJson.get(Strings.UUID));
 		((ServerConnectionInformation) con.getConnectionInformation()).setIdentifier(uuid, otherNodeUUID);
@@ -316,11 +367,11 @@ public class Control extends Thread {
 		System.out.println("Message " + msg);
 		try {
 			JSONObject msgJSON = convertStringToJSON(msg);
-			if (msgJSON.containsKey(Settings.CONNECTION_TYPE)) {
+			if (msgJSON.containsKey(Strings.CONNECTION_TYPE)) {
 				// Set the connection type
 				setConnectionType(con, msgJSON);
 			}
-			if (msgJSON.containsKey(Settings.MESSAGE)) {
+			if (msgJSON.containsKey(Strings.MESSAGE)) {
 				// A chat message from the client, process it
 				processMessage(con, msgJSON);
 			}

@@ -16,5 +16,9 @@ public class Strings {
 	public static String UUID2 = "uuid2";
 	public static String FOUND = "found";
 	public static String FIND = "find";
+	public static String MESSAGE = "message";
+	public static String CONNECTION_TYPE = "connection_type";
+	public static String SERVER = "server";
+	public static String CLIENT = "client";
 
 }
