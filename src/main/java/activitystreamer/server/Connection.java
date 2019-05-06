@@ -27,6 +27,7 @@ public class Connection extends Thread {
 	private boolean hasReceivedConnect;
 
 	private ConnectionState connectionState;
+	private ConnectionInformation connectionInformation;
 
 	Connection(Socket socket) throws IOException {
 		in = new DataInputStream(socket.getInputStream());
@@ -37,6 +38,14 @@ public class Connection extends Thread {
 		hasReceivedConnect = false;
 		open = true;
 		start();
+	}
+	
+	public ConnectionInformation getConnectionInformation() {
+		return connectionInformation;
+	}
+	
+	public void setConnectionInformation(ConnectionInformation ci) {
+		this.connectionInformation = ci;
 	}
 
 	public void setConnectionState(ConnectionState conState) {
