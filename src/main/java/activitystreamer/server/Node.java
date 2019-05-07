@@ -16,7 +16,7 @@ import activitystreamer.util.Strings;
 /** Consumes the messages, and then processes them, to form a GHS network */
 public class Node implements Runnable {
 	private static final Logger log = LogManager.getLogger();
-
+	private static final int negInf = -1;
 	/**
 	 * Maps between a Connection and a class representing the Edges of the network.
 	 */
@@ -33,7 +33,7 @@ public class Node implements Runnable {
 	private Connection inBranch = null;
 	private Connection bestConnection = null;
 	private Connection testConnection = null;
-	private Integer bestWeight = null;
+	private Integer bestWeight = negInf;
 
 	private Identifier fragmentIdentifier = new Identifier(Server.SERVER_UUID, Server.SERVER_UUID);
 
@@ -138,7 +138,7 @@ public class Node implements Runnable {
 		inBranch = serverCon;
 
 		bestConnection = null;
-		bestWeight = null;
+		bestWeight = negInf;
 		// Go through all the server connections,
 
 		for (Connection con : connectionEdgeMapper.keySet()) {

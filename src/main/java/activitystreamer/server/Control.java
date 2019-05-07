@@ -27,12 +27,13 @@ public class Control extends Thread {
 
 	protected static Control control = null;
 
-	public static Control initInstance(BlockingQueue<Message> queue) {
+	public synchronized static  Control initInstance(BlockingQueue<Message> queue) {
+		log.debug("INITIAL CONTROL");
 		control = new Control(queue);
 		return control;
 	}
 
-	public static Control getInstance() throws Exception {
+	public synchronized static Control getInstance() throws Exception {
 		if (control == null) {
 			throw new Exception("Instance was forgotten to be initialised");
 		}
