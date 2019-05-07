@@ -20,5 +20,7 @@ public class Strings {
 	public static String CONNECTION_TYPE = "connection_type";
 	public static String SERVER = "server";
 	public static String CLIENT = "client";
+	public static String TEST = "test";
+	public static String REPORT = "report";
 
 }

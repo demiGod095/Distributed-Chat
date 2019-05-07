@@ -29,6 +29,7 @@ public class Control extends Thread {
 
 	private Connection inBranch = null;
 	private Connection bestEdge = null;
+	private Connection testEdge = null;
 	private int bestWeight = -1;
 
 	private int level;
@@ -229,7 +230,53 @@ public class Control extends Thread {
 
 	/** Execute the test procedure */
 	private void test() {
+		// Look for edges with the basic state
+		Connection min = null;
+		ServerConnectionInformation sci;
+		for (Connection con : serverConnections) {
+			if (con.getConnectionState() instanceof BasicConnectionState) {
+				if (min == null) {
+					min = con;
+				} else if (((ServerConnectionInformation) min.getConnectionInformation())
+						.getLag() > ((ServerConnectionInformation) con.getConnectionInformation()).getLag()) {
+					min = con;
+				}
+			}
+		}
+		if (min == null) {
+			testEdge = null;
+		} else {
+			testEdge = min;
+			sendTest(min, this.level, this.fragmentIdentifier);
+		}
+		report();		
+	}
+	
+	private void report() {
+		if (foundCount == 0 && testEdge == null) {
+			this.state = new Found();
+			sendReport(inBranch, bestWeight);
+		}
+	}
+	
+	/** Sends a report message */
+	private void sendReport(Connection con, int bestWeight) {
+		JSONObject jobj = new JSONObject();
+		jobj.put(Strings.REPORT, bestWeight);
+		con.writeMsg(jobj.toJSONString());
+	}
+	
+	/** Sends a test message */
+	private void sendTest(Connection connection, int level, Identifier fragmentIdentifier) {
+		JSONObject firstLevel = new JSONObject();
+		JSONObject secondLevel = new JSONObject();
 
+		secondLevel.put(Strings.UUID1, fragmentIdentifier.getUUID1().toString());
+		secondLevel.put(Strings.UUID2, fragmentIdentifier.getUUID2().toString());
+		secondLevel.put(Strings.LEVEL, level);
+
+		firstLevel.put(Strings.TEST, secondLevel);
+		connection.writeMsg(firstLevel.toJSONString());
 	}
 
 	/**
