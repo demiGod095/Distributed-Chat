@@ -18,13 +18,19 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import activitystreamer.util.Settings;
-import activitystreamer.util.Strings;
 
 import static java.lang.StrictMath.toIntExact;
 
 public class ClientSkeleton extends Thread {
-	public static String CONNECTION_TYPE = "connection_type";
-	public static String CLIENT = "client";
+	public static final String USERNAME = "username";
+	public static final String SECRET = "secret";
+	public static final String COMMAND = "command";
+	public static final String LOGIN = "LOGIN";
+	public static final String ANONYMOUS = "anonymous";
+	public static final String REGISTER = "REGISTER";
+	public static final String LOGOUT = "LOGOUT";
+	public static final String REGISTER_FAIL = "REGISTER_FAILED";
+	public static final String REGISTER_SUCCESS = "REGISTER_SUCCESS";
 	private static final Logger log = LogManager.getLogger();
 	private static ClientSkeleton clientSolution;
 	private OutputStream output;
@@ -44,11 +50,54 @@ public class ClientSkeleton extends Thread {
 		return clientSolution;
 	}
 
+	/*
+	 * Performs an anonmyous login
+	 */
+	private void performLogin() {
+		log.debug("Performing Anomyous Login");
+		JSONObject jobj = new JSONObject();
+		jobj.put(COMMAND, LOGIN);
+		jobj.put(USERNAME, ANONYMOUS);
+		sendActivityObject(jobj);
+	}
+
+	private void performLogin(String username, String secret) {
+		JSONObject jobj = new JSONObject();
+		jobj.put(COMMAND, LOGIN);
+		jobj.put(USERNAME, username);
+		jobj.put(SECRET, secret);
+		sendActivityObject(jobj);
+	}
+
+	private void sendRegistration(String username, String secret) {
+		JSONObject jobj = new JSONObject();
+		jobj.put(COMMAND, REGISTER);
+		jobj.put(USERNAME, username);
+		jobj.put(SECRET, secret);
+		sendActivityObject(jobj);
+	}
+
 	private void processReply(String reply) {
 		JSONParser parse = new JSONParser();
 		try {
 			Object obj = parse.parse(reply);
 			JSONObject jobj = (JSONObject) obj;
+			if (jobj.containsKey(COMMAND)) {
+				if (jobj.get(COMMAND).equals(REGISTER_FAIL)) {
+					// Client Registration fail. Abort
+					log.error(
+							"Client is attempting to register a username that is already registered.\n Please pick a new username and try again");
+					textFrame.setOutputText(jobj);					
+				} else if (jobj.get(COMMAND).equals(REGISTER_SUCCESS)) {
+					// Perform Login with new secret
+					performLogin(Settings.getUsername(), Settings.getSecret());
+					log.info("Client registered with secret " + Settings.getSecret());
+				}
+			} else {
+				// ABORT, server doesn't reply to logins
+				log.error("Server sending invalid reply to Registration attempt.");
+				System.exit(1);
+			}
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -65,7 +114,26 @@ public class ClientSkeleton extends Thread {
 			output = clientSocket.getOutputStream();
 			pwrite = new PrintWriter(output, true);
 			input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-			sendClientConnectionRequest();
+			log.debug("Username " + Settings.getUsername());
+			if (Settings.getUsername().equals(ANONYMOUS)) {
+				// Log in as anonymous
+				log.debug("Performing Anonmynous Login");
+				performLogin();
+			} else if (Settings.getSecret() == null) {
+				// Register the username. If it is sucessful then login
+				String secret = Settings.nextSecret();
+				Settings.setSecret(secret);
+				sendRegistration(Settings.getUsername(), secret);
+
+				// Proces reply
+				String reply = input.readLine();
+				log.debug("REPLY " + reply);
+				// Process the reply
+				processReply(reply);
+
+			} else {
+				performLogin(Settings.getUsername(), Settings.getSecret());
+			}
 			connected = true;
 		} catch (ConnectException e) {
 			log.error("Connection Refused");
@@ -83,16 +151,10 @@ public class ClientSkeleton extends Thread {
 	}
 
 	@SuppressWarnings("unchecked")
-	public void sendJsonOnSocket(JSONObject activityObj) {
+	public void sendActivityObject(JSONObject activityObj) {
+		// TODO Write code to submit ac)tivity object to server
 		pwrite.println(activityObj.toJSONString());
 		pwrite.flush();
-	}
-
-	/** Sends information specifing the Connection type to the server */
-	private void sendClientConnectionRequest() {
-		JSONObject obj = new JSONObject();
-		obj.put(Strings.CONNECTION_TYPE, CLIENT);
-		sendJsonOnSocket(obj);
 	}
 
 	public boolean updateIncomingData() {
@@ -105,12 +167,8 @@ public class ClientSkeleton extends Thread {
 				JSONParser parse = new JSONParser();
 				JSONObject obj;
 				try {
-					System.out.println("RECEIVED MESSAGE " + receivedMessage);
 					obj = (JSONObject) parse.parse(receivedMessage);
-					System.out.println("Received Object " + obj);
-					if (obj.containsKey(Strings.MESSAGE)) {
-						textFrame.setOutputText(obj.get(Strings.MESSAGE).toString());
-					}
+					textFrame.setOutputText(obj);
 
 					if (obj.containsKey("command")) {
 						String command = (String) obj.get("command");
@@ -149,9 +207,16 @@ public class ClientSkeleton extends Thread {
 		return false;
 	}
 
+	private void sendLogout() {
+		JSONObject jobj = new JSONObject();
+		jobj.put(COMMAND, LOGOUT);
+		sendActivityObject(jobj);
+	}
+
 	public void disconnect() {
 		try {
 			connected = false;
+			sendLogout();
 			input.close();
 			output.close();
 			clientSocket.close();

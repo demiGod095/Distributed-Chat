@@ -14,12 +14,9 @@ public class Settings {
 	private static String localHostname = "localhost";
 	private static String remoteHostname = null;
 	private static int remotePort = 3780;
-	public static int LAG = 100; // milliseconds
-	
 	private static int activityInterval = 5000; // milliseconds
 	private static String secret = null;
 	private static String username = "anonymous";
-	
 
 	
 	public static int getLocalPort() {
@@ -32,14 +29,6 @@ public class Settings {
 		} else {
 			Settings.localPort = localPort;
 		}
-	}
-	
-	public static int getLag() {
-		return LAG;
-	}
-	
-	public static void setLag(int lag) {
-		Settings.LAG = lag;
 	}
 	
 	public static int getRemotePort() {

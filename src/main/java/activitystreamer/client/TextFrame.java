@@ -25,10 +25,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
-import activitystreamer.util.Settings;
-import activitystreamer.util.Strings;
-
-
 @SuppressWarnings("serial")
 public class TextFrame extends JFrame implements ActionListener {
 	private static final Logger log = LogManager.getLogger();
@@ -39,16 +35,16 @@ public class TextFrame extends JFrame implements ActionListener {
 	private JSONParser parser = new JSONParser();
 	
 	public TextFrame(){
-		setTitle("Chat");
+		setTitle("ActivityStreamer Text I/O");
 		JPanel mainPanel = new JPanel();
 		mainPanel.setLayout(new GridLayout(1,2));
 		JPanel inputPanel = new JPanel();
 		JPanel outputPanel = new JPanel();
 		inputPanel.setLayout(new BorderLayout());
 		outputPanel.setLayout(new BorderLayout());
-		Border lineBorder = BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.lightGray),"Chat Input");
+		Border lineBorder = BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.lightGray),"JSON input, to send to server");
 		inputPanel.setBorder(lineBorder);
-		lineBorder = BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.lightGray),"Chat Output");
+		lineBorder = BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.lightGray),"JSON output, received from server");
 		outputPanel.setBorder(lineBorder);
 		outputPanel.setName("Text output");
 		
@@ -80,8 +76,13 @@ public class TextFrame extends JFrame implements ActionListener {
 		setVisible(true);
 	}
 
-	public void setOutputText(String text){
-		outputText.setText(text);
+	public void setOutputText(final JSONObject obj){
+		log.debug("OUTPUT TEXT " + obj);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		JsonParser jp = new JsonParser();
+		JsonElement je = jp.parse(obj.toJSONString());
+		String prettyJsonString = gson.toJson(je);
+		outputText.setText(prettyJsonString);
 		outputText.revalidate();
 		outputText.repaint();
 	}
@@ -90,9 +91,13 @@ public class TextFrame extends JFrame implements ActionListener {
 	public void actionPerformed(ActionEvent e) {
 		if(e.getSource()==sendButton){
 			String msg = inputText.getText().trim().replaceAll("\r","").replaceAll("\n","").replaceAll("\t", "");
-			JSONObject obj = new JSONObject();
-			obj.put(Strings.MESSAGE, msg);
-			ClientSkeleton.getInstance().sendJsonOnSocket(obj);
+			JSONObject obj;
+			try {
+				obj = (JSONObject) parser.parse(msg);
+				ClientSkeleton.getInstance().sendActivityObject(obj);
+			} catch (ParseException e1) {
+				log.error("invalid JSON object entered into input text field, data not sent");
+			}
 			
 		} else if(e.getSource()==disconnectButton){
 			ClientSkeleton.getInstance().disconnect();

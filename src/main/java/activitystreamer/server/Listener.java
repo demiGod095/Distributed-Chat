@@ -32,6 +32,9 @@ public class Listener extends Thread{
 			} catch (IOException e) {
 				log.info("received exception, shutting down");
 				term=true;
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 	}
