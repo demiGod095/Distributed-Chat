@@ -96,4 +96,22 @@ public class Connection extends Thread {
     public void setTerm(boolean term) {
         this.term = term;
     }
+    
+	@Override
+	public boolean equals(Object o) {
+		if (o == this) {
+			return true;
+		}
+
+		if (!(o instanceof Connection)) {
+			return false;
+		}
+
+		Connection con = (Connection) o;
+
+		if (con.getSocket().equals(this.socket)) {
+			return true;
+		}
+		return false;
+	}
 }

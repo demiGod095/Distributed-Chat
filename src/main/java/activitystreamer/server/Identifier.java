@@ -8,7 +8,7 @@ import java.util.UUID;
  * the pairs in a consistent and deterministic order, so that there is agreement
  * on the ordering
  */
-public class Identifier {
+public class Identifier implements Comparable <Identifier> {
 
 	UUID uuid1;
 	UUID uuid2;
@@ -34,5 +34,14 @@ public class Identifier {
 	@Override
 	public String toString() {
 		return "UUID 1 " + uuid1.toString() + "\nUUID2 " + uuid2.toString();
+	}
+
+	@Override
+	public int compareTo(Identifier o) {
+		int uuidCmp = uuid1.compareTo(o.getUUID1());
+		if (uuidCmp == 0) {
+			return uuid2.compareTo(o.getUUID2());
+		}
+		return uuidCmp;
 	}
 }

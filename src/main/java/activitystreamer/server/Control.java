@@ -12,7 +12,9 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import activitystreamer.Server;
 import activitystreamer.util.Settings;
+import activitystreamer.util.Strings;
 
 public class Control extends Thread {
 	private static final Logger log = LogManager.getLogger();
@@ -58,6 +60,7 @@ public class Control extends Thread {
 				Connection outgoing = outgoingConnection(
 						new Socket(Settings.getRemoteHostname(), Settings.getRemotePort()));
 				connections.add(outgoing);
+				sendHandshake(outgoing);
 			} catch (IOException e) {
 				log.error("failed to make connection to " + Settings.getRemoteHostname() + ":"
 						+ Settings.getRemotePort() + " :" + e);
@@ -82,6 +85,7 @@ public class Control extends Thread {
 		log.debug("incomming connection: " + Settings.socketAddress(s));
 		Connection c = new Connection(s);
 		connections.add(c);
+		sendHandshake(c);
 		return c;
 
 	}
@@ -94,10 +98,22 @@ public class Control extends Thread {
 		log.debug("outgoing connection: " + Settings.socketAddress(s));
 		Connection c = new Connection(s);
 		JSONObject jobj = new JSONObject();
-		// jobj.put(Settings.CONNECTION_TYPE, Settings.SERVER);
 		c.writeMsg(jobj.toJSONString());
 		connections.add(c);
 		return c;
+	}
+
+	/**
+	 * Send a message specifying a server handshake, to any connections made to
+	 * other servers
+	 */
+	public void sendHandshake(Connection connection) {
+		JSONObject level1 = new JSONObject();
+		JSONObject level2 = new JSONObject();
+		level2.put(Strings.UUID, Server.SERVER_UUID.toString());
+		level2.put(Strings.LAG, Settings.LAG);
+		level1.put(Strings.SERVER_HANDSHAKE, level2);
+		connection.writeMsg(level1.toJSONString());
 	}
 
 	/**
@@ -109,13 +125,14 @@ public class Control extends Thread {
 		return json;
 	}
 
-	/** Parses the String message into JSON, and then places it on the queue.
+	/**
+	 * Parses the String message into JSON, and then places it on the queue.
+	 * 
 	 * @param con
 	 * @param msg
 	 * @return
 	 */
 	public synchronized boolean process(Connection con, String msg) {
-		System.out.println("Message " + msg);
 		JSONObject jobj;
 		try {
 			jobj = convertStringToJSON(msg);
