@@ -188,7 +188,7 @@ public class Node implements Runnable {
 		UUID uuid2 = UUID.fromString((String) jobj.get(Strings.UUID2));
 		int testLevel = (int) (long) info.get(Strings.LEVEL);
 		Identifier fid = new Identifier(uuid1, uuid2);
-		
+
 		ServerEdge se = connectionEdgeMapper.get(msg.getConnection());
 		if (nodeState == NodeState.Sleeping) {
 			wakeup();
@@ -209,6 +209,24 @@ public class Node implements Runnable {
 			}
 
 		}
+	}
+
+	private void receiveAccept(Message message) {
+		Connection con = message.getConnection();
+		testConnection = null;
+		if (connectionEdgeMapper.get(con).getLag() < bestWeight) {
+			bestConnection = testConnection;
+			bestWeight = connectionEdgeMapper.get(con).getLag();
+		}
+		report();
+	}
+
+	private void receiveReject(Message message) {
+		ServerEdge se = connectionEdgeMapper.get(message.getConnection());
+		if (se.getEdgeState() == EdgeState.Basic) {
+			se.setEdgeState(EdgeState.Reject);
+		}
+		test();
 	}
 
 	private void sendAccept(Connection con) {
@@ -289,24 +307,23 @@ public class Node implements Runnable {
 		JSONObject jobj = message.getMessage();
 		if (jobj.containsKey(Strings.SERVER_HANDSHAKE)) {
 			processServerHandshake(message.getConnection(), jobj);
-		}
-		else if (jobj.containsKey(Strings.CONNECTION_TYPE)) {
+		} else if (jobj.containsKey(Strings.CONNECTION_TYPE)) {
 			processClientConnection(message.getConnection(), jobj);
-		}
-		else if (jobj.containsKey(Strings.WAKE_UP)) {
+		} else if (jobj.containsKey(Strings.WAKE_UP)) {
 			if (nodeState == NodeState.Sleeping) {
 				log.debug("Wakeing Up, due to Client Request");
 				wakeup();
 			}
-		}
-		else if (jobj.containsKey(Strings.CONNECT)) {
+		} else if (jobj.containsKey(Strings.CONNECT)) {
 			respondToConnect(message);
-		}
-		else if (jobj.containsKey(Strings.INITIATE)) {
+		} else if (jobj.containsKey(Strings.INITIATE)) {
 			receiveInitiate(message);
-		}
-		else if (jobj.containsKey(Strings.TEST)) {
+		} else if (jobj.containsKey(Strings.TEST)) {
 			receiveTest(message);
+		} else if (jobj.containsKey(Strings.ACCEPT)) {
+			receiveAccept(message);
+		} else if (jobj.containsKey(Strings.REJECT)) {
+			receiveReject(message);
 		}
 	}
 
