@@ -44,4 +44,19 @@ public class Identifier implements Comparable <Identifier> {
 		}
 		return uuidCmp;
 	}
+	
+	@Override
+	public boolean equals(Object o) {
+		if (o == this) {
+			return true;
+		}
+		
+		if (!(o instanceof Identifier)) {
+			return false;
+		}
+		
+		Identifier id = (Identifier) o;
+		
+		return uuid1.equals(id.getUUID1()) && uuid2.equals(id.getUUID2());
+	}
 }

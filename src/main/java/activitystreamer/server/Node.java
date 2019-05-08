@@ -181,6 +181,37 @@ public class Node implements Runnable {
 		}
 	}
 	
+	private void receiveTest(Message msg, int level, Identifier fid) {
+		if (nodeState == NodeState.Sleeping) {
+			wakeup();
+		}
+		if (level > this.level) {
+			queue.add(msg);
+			return;
+		} else if (!(fid.equals(fragmentIdentifier))) {
+			sendAccept(msg.getConnection());
+		} else {
+			ServerEdge se = connectionEdgeMapper.get(msg.getConnection());
+			if (se.getEdgeState() == EdgeState.Basic) {
+				se.setEdgeState(EdgeState.Reject);
+			}
+			if (!(testConnection.equals(msg.getConnection()))) {
+				sendReject(msg.getConnection());
+			} else {
+				test();
+			}
+
+		}
+	}
+	
+	private void sendAccept(Connection con) {
+		
+	}
+	
+	private void sendReject(Connection con) {
+		
+	}
+	
 	private void report() {
 		if (findCount == 0 && testConnection == null) {
 			nodeState = NodeState.Found;
