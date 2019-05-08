@@ -30,6 +30,8 @@ public class Node implements Runnable {
 	private int level = 0;
 	private int findCount = 0;
 
+	private boolean completed = false;
+
 	private Connection inBranch = null;
 	private Connection bestConnection = null;
 	private Connection testConnection = null;
@@ -324,6 +326,10 @@ public class Node implements Runnable {
 			receiveAccept(message);
 		} else if (jobj.containsKey(Strings.REJECT)) {
 			receiveReject(message);
+		} else if (jobj.containsKey(Strings.REPORT)) {
+			receiveReport(message);
+		} else if (jobj.containsKey(Strings.CHANGE_CORE)) {
+			receiveChangeCore();
 		}
 	}
 
@@ -345,6 +351,46 @@ public class Node implements Runnable {
 			log.debug("Adding New Client\n");
 			clients.add(connection);
 		}
+	}
+
+	private void receiveReport(Message message) {
+		JSONObject jobj = message.getMessage();
+		int weight = (int) (long) jobj.get(Strings.REPORT);
+		Connection con = message.getConnection();
+
+		if (!(con.equals(inBranch))) {
+			findCount--;
+			if (weight < bestWeight) {
+				bestWeight = weight;
+				bestConnection = con;
+			}
+			report();
+		} else if (nodeState == NodeState.Find) {
+			queue.add(message);
+		} else if (weight > bestWeight) {
+			changeCore();
+		} else if (weight == bestWeight && bestWeight == negInf) {
+			completed = true;
+		}
+	}
+
+	private void changeCore() {
+		if (connectionEdgeMapper.get(bestConnection).getEdgeState() == EdgeState.Branch) {
+			sendChangeCore(bestConnection);
+		} else {
+			sendConnect(bestConnection);
+			connectionEdgeMapper.get(bestConnection).setEdgeState(EdgeState.Branch);
+		}
+	}
+	
+	private void sendChangeCore(Connection con) {
+		JSONObject jobj = new JSONObject();
+		jobj.put(Strings.CHANGE_CORE, "");
+		con.writeMsg(jobj.toJSONString());
+	}
+
+	private void receiveChangeCore() {
+		changeCore();
 	}
 
 	@Override

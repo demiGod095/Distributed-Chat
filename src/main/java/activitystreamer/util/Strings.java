@@ -27,4 +27,5 @@ public class Strings {
 	public static String WAKE_UP = "wakeup";
 	public static String ACCEPT = "accept";
 	public static String REJECT = "reject";
+	public static String CHANGE_CORE = "change_core";
 }
