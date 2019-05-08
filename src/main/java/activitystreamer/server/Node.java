@@ -106,12 +106,12 @@ public class Node implements Runnable {
 		}
 
 	}
-	
+
 	private void receiveInitiate(Message message) {
 		JSONObject jobj = message.getMessage();
 		JSONObject secondLvl = (JSONObject) jobj.get(Strings.INITIATE);
 		log.debug(message.getMessage().toString());
-		
+
 		UUID uuid1 = (UUID) UUID.fromString((String) secondLvl.get(Strings.UUID1));
 		UUID uuid2 = (UUID) UUID.fromString((String) secondLvl.get(Strings.UUID2));
 		Identifier fid = new Identifier(uuid1, uuid2);
@@ -180,18 +180,25 @@ public class Node implements Runnable {
 			sendTest(min, this.level, this.fragmentIdentifier);
 		}
 	}
-	
-	private void receiveTest(Message msg, int level, Identifier fid) {
+
+	private void receiveTest(Message msg) {
+		JSONObject jobj = msg.getMessage();
+		JSONObject info = (JSONObject) jobj.get(Strings.TEST);
+		UUID uuid1 = UUID.fromString((String) jobj.get(Strings.UUID1));
+		UUID uuid2 = UUID.fromString((String) jobj.get(Strings.UUID2));
+		int testLevel = (int) (long) info.get(Strings.LEVEL);
+		Identifier fid = new Identifier(uuid1, uuid2);
+		
+		ServerEdge se = connectionEdgeMapper.get(msg.getConnection());
 		if (nodeState == NodeState.Sleeping) {
 			wakeup();
 		}
-		if (level > this.level) {
+		if (testLevel > this.level) {
 			queue.add(msg);
 			return;
 		} else if (!(fid.equals(fragmentIdentifier))) {
 			sendAccept(msg.getConnection());
 		} else {
-			ServerEdge se = connectionEdgeMapper.get(msg.getConnection());
 			if (se.getEdgeState() == EdgeState.Basic) {
 				se.setEdgeState(EdgeState.Reject);
 			}
@@ -203,29 +210,34 @@ public class Node implements Runnable {
 
 		}
 	}
-	
+
 	private void sendAccept(Connection con) {
-		
+		JSONObject jobj = new JSONObject();
+		jobj.put(Strings.ACCEPT, Server.SERVER_UUID.toString());
+		con.writeMsg(jobj.toJSONString());
 	}
-	
+
 	private void sendReject(Connection con) {
-		
+		JSONObject jobj = new JSONObject();
+		jobj.put(Strings.REJECT, Server.SERVER_UUID.toString());
+		con.writeMsg(jobj.toJSONString());
+
 	}
-	
+
 	private void report() {
 		if (findCount == 0 && testConnection == null) {
 			nodeState = NodeState.Found;
 			sendReport(inBranch, bestWeight);
 		}
 	}
-	
+
 	/** Sends a report message */
 	private void sendReport(Connection con, int bestWeight) {
 		JSONObject jobj = new JSONObject();
 		jobj.put(Strings.REPORT, bestWeight);
 		con.writeMsg(jobj.toJSONString());
 	}
-	
+
 	/** Sends a test message */
 	private void sendTest(Connection connection, int level, Identifier fragmentIdentifier) {
 		JSONObject firstLevel = new JSONObject();
@@ -278,20 +290,23 @@ public class Node implements Runnable {
 		if (jobj.containsKey(Strings.SERVER_HANDSHAKE)) {
 			processServerHandshake(message.getConnection(), jobj);
 		}
-		if (jobj.containsKey(Strings.CONNECTION_TYPE)) {
+		else if (jobj.containsKey(Strings.CONNECTION_TYPE)) {
 			processClientConnection(message.getConnection(), jobj);
 		}
-		if (jobj.containsKey(Strings.WAKE_UP)) {
+		else if (jobj.containsKey(Strings.WAKE_UP)) {
 			if (nodeState == NodeState.Sleeping) {
 				log.debug("Wakeing Up, due to Client Request");
 				wakeup();
 			}
 		}
-		if (jobj.containsKey(Strings.CONNECT)) {
+		else if (jobj.containsKey(Strings.CONNECT)) {
 			respondToConnect(message);
 		}
-		if (jobj.containsKey(Strings.INITIATE)) {
+		else if (jobj.containsKey(Strings.INITIATE)) {
 			receiveInitiate(message);
+		}
+		else if (jobj.containsKey(Strings.TEST)) {
+			receiveTest(message);
 		}
 	}
 

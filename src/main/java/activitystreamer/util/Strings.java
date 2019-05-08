@@ -25,4 +25,6 @@ public class Strings {
 	public static String LAG = "lag";
 	public static String SERVER_HANDSHAKE = "server_handshake";
 	public static String WAKE_UP = "wakeup";
+	public static String ACCEPT = "accept";
+	public static String REJECT = "reject";
 }
