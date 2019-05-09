@@ -50,13 +50,15 @@ public class Node implements Runnable {
 	/** Performs the wakeup routine */
 	public void wakeup() {
 		log.debug("Wakeup Executed");
+
+		level = 0;
+		findCount = 0;
+		
+		this.nodeState = NodeState.Found;
 		if (connectionEdgeMapper.size() == 0) {
 			log.error("No outgoing edges");
 			return;
 		}
-		level = 0;
-		nodeState = NodeState.Found;
-
 		// Find the connection with the lowest weight
 		Connection lowest = null;
 		try {
@@ -170,7 +172,6 @@ public class Node implements Runnable {
 	/** Execute the test procedure */
 	private void test() {
 		// Look for edges with the basic state
-		log.debug("TEST CALLED");
 		Connection min = null;
 		for (Connection con : connectionEdgeMapper.keySet()) {
 			ServerEdge se = connectionEdgeMapper.get(con);
@@ -193,7 +194,6 @@ public class Node implements Runnable {
 	}
 
 	private void receiveTest(Message msg) {
-		log.debug("Received Test Message " + msg.getMessage().toString());
 		JSONObject jobj = msg.getMessage();
 		JSONObject info = (JSONObject) jobj.get(Strings.TEST);
 		UUID uuid1 = UUID.fromString((String) info.get(Strings.UUID1));
@@ -231,6 +231,7 @@ public class Node implements Runnable {
 	}
 
 	private void receiveAccept(Message message) {
+		log.debug("Receive Accept");
 		Connection con = message.getConnection();
 		testConnection = null;
 		if (connectionEdgeMapper.get(con).getLag() < bestWeight) {
@@ -241,6 +242,7 @@ public class Node implements Runnable {
 	}
 
 	private void receiveReject(Message message) {
+		log.debug("Receive Reject");
 		ServerEdge se = connectionEdgeMapper.get(message.getConnection());
 		if (se.getEdgeState() == EdgeState.Basic) {
 			se.setEdgeState(EdgeState.Reject);
@@ -261,10 +263,7 @@ public class Node implements Runnable {
 	}
 
 	private void report() {
-		log.debug("Find Count" + findCount);
-		if (testConnection != null) {
-			log.debug("TEST CONNECTION " + testConnection.getSocket().toString());
-		}
+		log.debug("Issuing Report");
 		if (findCount == 0 && testConnection == null) {
 			nodeState = NodeState.Found;
 			sendReport(inBranch, bestWeight);
@@ -319,9 +318,29 @@ public class Node implements Runnable {
 	 * 
 	 */
 	private void sendConnect(Connection serverCon) {
+		log.debug("SendingConnect");
 		JSONObject jobj = new JSONObject();
 		jobj.put(Strings.CONNECT, level);
 		serverCon.writeMsg(jobj.toJSONString());
+	}
+
+	private void receiveMessage(Message msg) {
+		Connection con = msg.getConnection();
+		for (Connection c : clients) {
+			c.writeMsg(msg.getMessage().toJSONString());
+		}
+		for (Connection c : connectionEdgeMapper.keySet()) {
+			if (c.equals(con)) {
+				continue;
+			}
+			if (connectionEdgeMapper.get(c).getEdgeState() == EdgeState.Branch) {
+				// Write a Delayed Message
+				int lag = connectionEdgeMapper.get(c).getLag();
+				DelayedMessage delayedMsg = new DelayedMessage(msg.getMessage(), lag, c);
+				Thread t = new Thread(delayedMsg);
+				t.start();
+			}
+		}
 	}
 
 	/** Process the message retrieved from the queue */
@@ -334,6 +353,7 @@ public class Node implements Runnable {
 			processClientConnection(message.getConnection(), jobj);
 		} else if (jobj.containsKey(Strings.WAKE_UP)) {
 			if (nodeState == NodeState.Sleeping) {
+				log.debug("Node State" + nodeState);
 				log.debug("Wakeing Up, due to Client Request");
 				wakeup();
 			}
@@ -351,6 +371,8 @@ public class Node implements Runnable {
 			receiveReport(message);
 		} else if (jobj.containsKey(Strings.CHANGE_CORE)) {
 			receiveChangeCore();
+		} else if (jobj.containsKey(Strings.MESSAGE)) {
+			receiveMessage(message);
 		}
 	}
 
