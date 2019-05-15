@@ -1,0 +1,21 @@
+Building the Program
+
+This contains a Gradle build script. So if the compressed file containing this project is imported as a gradle project, all the
+dependancies for this project will be automatically downloaded by gradle.
+
+The Program is structured into a number of packages including,
+activitystreamer, activitystreamer.client, activitystreamer.server and activitystreamer.util. A breakdown on what each package
+contains is described below.
+
+activitystreamer:	Code containing the main entry points to the program. If you want to run a server or a client,
+					these files can be compiled and executed.
+					
+activitystreamer.client:	Contains the code for the client
+
+
+activitystreamer.server:	Contains code for the server
+
+activitystreamer.util:	Contains common code, used by both client and server
+
+A log4j2.xml file is also required. This configures the logging mechanism, which is based on log4j.
+

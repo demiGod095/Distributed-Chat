@@ -1,5 +1,12 @@
 package activitystreamer.util;
 
+/**
+ * A class containing strings, so we avoid the Magic Number problem throughout
+ * the code base.
+ * 
+ * @author Patrick
+ *
+ */
 public class Strings {
 	public static String LAG_NEGOTIATE = "lagnegotiate";
 	public static String CONNECT = "connect";
@@ -28,4 +35,6 @@ public class Strings {
 	public static String ACCEPT = "accept";
 	public static String REJECT = "reject";
 	public static String CHANGE_CORE = "change_core";
+	public static String HANDSHAKE_ACK = "ackhandshake";
+	public static String USERNAME = "username";
 }

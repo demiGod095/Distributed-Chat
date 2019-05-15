@@ -28,6 +28,8 @@ import com.google.gson.JsonParser;
 import activitystreamer.util.Settings;
 import activitystreamer.util.Strings;
 
+/** Chat Window Frame, with the code mainly from Aaron Harwood */
+
 @SuppressWarnings("serial")
 public class TextFrame extends JFrame implements ActionListener {
 	private static final Logger log = LogManager.getLogger();
@@ -91,15 +93,13 @@ public class TextFrame extends JFrame implements ActionListener {
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
-		if(e.getSource()==sendButton){
-			String msg = inputText.getText().trim().replaceAll("\r","").replaceAll("\n","").replaceAll("\t", "");
-			JSONObject obj = new JSONObject();
-			obj.put(Strings.MESSAGE, msg);
-			ClientSkeleton.getInstance().sendJsonOnSocket(obj);
-			
-		} else if(e.getSource()==disconnectButton){
+		if (e.getSource() == sendButton) {
+			String msg = inputText.getText();
+			ClientSkeleton.getInstance().sendMessage(msg);
+
+		} else if (e.getSource() == disconnectButton) {
 			ClientSkeleton.getInstance().disconnect();
-		} else if (e.getSource()==sendWakeup) {
+		} else if (e.getSource() == sendWakeup) {
 			ClientSkeleton.getInstance().sendWakeup();
 		}
 	}

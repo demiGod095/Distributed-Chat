@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 
 import org.apache.logging.log4j.LogManager;
@@ -13,9 +14,21 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import activitystreamer.Server;
+import activitystreamer.util.IpPortLagTriplet;
 import activitystreamer.util.Settings;
 import activitystreamer.util.Strings;
 
+/**
+ * The Controller for the server. This thread receives any new connections,
+ * initiates any remote connections to be made at startup. It also places
+ * messages in the Blocking Queue. The Node thread then takes the messages from
+ * this FIFO queue, and processes the messages.
+ * 
+ * Uses elements of Arron Harwood's code from last year.
+ * 
+ * @author Patrick
+ *
+ */
 public class Control extends Thread {
 	private static final Logger log = LogManager.getLogger();
 	private static ArrayList<Connection> connections;
@@ -27,12 +40,17 @@ public class Control extends Thread {
 
 	protected static Control control = null;
 
-	public synchronized static  Control initInstance(BlockingQueue<Message> queue) {
+	/** Create the initial instance, with a defined Blocking Queue */
+	public synchronized static Control initInstance(BlockingQueue<Message> queue) {
 		log.debug("INITIAL CONTROL");
 		control = new Control(queue);
 		return control;
 	}
 
+	/**
+	 * Get an instance of the Control Class. If an instance has not been
+	 * Initialized, an exception is thrown.
+	 */
 	public synchronized static Control getInstance() throws Exception {
 		if (control == null) {
 			throw new Exception("Instance was forgotten to be initialised");
@@ -54,44 +72,32 @@ public class Control extends Thread {
 		}
 	}
 
+	/**
+	 * If a remote Server arguement has been supplied, then we make a connection to
+	 * every server specified in the remote server list.
+	 */
 	public void initiateConnection() {
 		// make a connection to another server if remote hostname is supplied
-		if (Settings.getRemoteHostname() != null) {
-			try {
-				Connection outgoing = outgoingConnection(
-						new Socket(Settings.getRemoteHostname(), Settings.getRemotePort()));
-				connections.add(outgoing);
-				sendHandshake(outgoing);
-			} catch (IOException e) {
-				log.error("failed to make connection to " + Settings.getRemoteHostname() + ":"
-						+ Settings.getRemotePort() + " :" + e);
-				System.exit(-1);
+		if (Settings.getIpPorts().size() != 0) {
+			for (IpPortLagTriplet ipp : Settings.getIpPorts()) {
+				try {
+					log.debug("Connecting to " + ipp.getIpAddress().toString() + " Port " + ipp.getPort());
+					Connection outgoing = outgoingConnection(new Socket(ipp.getIpAddress(), ipp.getPort()));
+					outgoing.setLag(ipp.getLag());
+					sendHandshake(outgoing, ipp.getLag(), Server.SERVER_UUID);
+				} catch (IOException e) {
+					log.error("Error connecting to remote servers");
+					e.printStackTrace();
+					System.exit(-1);
+				} catch (Exception e) {
+					log.error("Error connecting to remote servers");
+					System.exit(-1);
+				}
 			}
 		}
 	}
 
-	/*
-	 * The connection has been closed by the other party.
-	 */
-	public synchronized void connectionClosed(Connection con) {
-		if (!term)
-			connections.remove(con);
-	}
-
-	/*
-	 * A new incoming connection has been established, and a reference is returned
-	 * to it
-	 */
-	public synchronized Connection incomingConnection(Socket s) throws IOException {
-		log.debug("incomming connection: " + Settings.socketAddress(s));
-		Connection c = new Connection(s);
-		connections.add(c);
-		sendHandshake(c);
-		return c;
-
-	}
-
-	/*
+	/**
 	 * A new outgoing connection has been established, and a reference is returned
 	 * to it
 	 */
@@ -105,14 +111,34 @@ public class Control extends Thread {
 	}
 
 	/**
-	 * Send a message specifying a server handshake, to any connections made to
-	 * other servers
+	 * The connection has been closed by the other party.
 	 */
-	public void sendHandshake(Connection connection) {
+	public synchronized void connectionClosed(Connection con) {
+		if (!term)
+			connections.remove(con);
+	}
+
+	/**
+	 * ( A new incoming connection has been established, and a reference is returned
+	 * to it
+	 */
+	public synchronized Connection incomingConnection(Socket s) throws IOException {
+		log.debug("incomming connection: " + Settings.socketAddress(s));
+		Connection c = new Connection(s);
+		connections.add(c);
+		return c;
+	}
+
+	/**
+	 * Send a message specifying a server handshake, to any connections made to
+	 * other servers. This allows the other servers to learn that this connection,
+	 * is a server connection. Not a client.
+	 */
+	public void sendHandshake(Connection connection, int lag, UUID uuid) {
 		JSONObject level1 = new JSONObject();
 		JSONObject level2 = new JSONObject();
-		level2.put(Strings.UUID, Server.SERVER_UUID.toString());
-		level2.put(Strings.LAG, Settings.LAG);
+		level2.put(Strings.UUID, uuid.toString());
+		level2.put(Strings.LAG, lag);
 		level1.put(Strings.SERVER_HANDSHAKE, level2);
 		connection.writeMsg(level1.toJSONString());
 	}
@@ -131,17 +157,20 @@ public class Control extends Thread {
 	 * 
 	 * @param con
 	 * @param msg
-	 * @return
+	 * @return True - Connection should be closed. False - The connection should
+	 *         remain open.
 	 */
 	public synchronized boolean process(Connection con, String msg) {
 		JSONObject jobj;
 		try {
+			log.debug("Msg " + msg);
 			jobj = convertStringToJSON(msg);
 			Message message = new Message(con, jobj);
 			queue.add(message);
 		} catch (ParseException e) {
 			log.error("Invalid JSON");
 			e.printStackTrace();
+			return true;
 		}
 		return false;
 	}

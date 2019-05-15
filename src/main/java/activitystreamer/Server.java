@@ -10,6 +10,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.logging.log4j.LogManager;
@@ -18,16 +19,21 @@ import org.apache.logging.log4j.Logger;
 import activitystreamer.server.Control;
 import activitystreamer.server.Message;
 import activitystreamer.server.Node;
+import activitystreamer.util.IpPortLagTriplet;
 import activitystreamer.util.Settings;
 
+/**
+ * A Class representing the entry point for our server. This code was adapted
+ * from Aaron Harwoods code For the activity Streamer for COMP90015 last year.
+ */
 public class Server {
 	private static final Logger log = LogManager.getLogger();
 
 	public static final String ID = Settings.nextSecret();
 
 	private static void help(Options options) {
-		String header = "An ActivityStream Server for Unimelb COMP90015\n\n";
-		String footer = "\ncontact aharwood@unimelb.edu.au for issues.";
+		String header = "An Chat Server, that implements the GHS Algorithm\n\n";
+		String footer = "\ncontact phudgell@student.unimelb.edu.au for issues.";
 		HelpFormatter formatter = new HelpFormatter();
 		formatter.printHelp("ActivityStreamer.Server", header, options, footer, true);
 		System.exit(-1);
@@ -44,13 +50,16 @@ public class Server {
 		log.info("reading command line options");
 
 		Options options = new Options();
+
 		options.addOption("lp", true, "local port number");
-		options.addOption("rp", true, "remote port number");
-		options.addOption("rh", true, "remote hostname");
 		options.addOption("lh", true, "local hostname");
 		options.addOption("a", true, "activity interval in milliseconds");
-		options.addOption("s", true, "secret for the server to use");
 		options.addOption("lg", true, "Lag to Simulate");
+		options.addOption("t", true, "Test");
+		Option remoteServers = new Option("rs", true,
+				"remote server, specified in ip:port:lag format, separated by a colon");
+		remoteServers.setArgs(Option.UNLIMITED_VALUES);
+		options.addOption(remoteServers);
 
 		// build the parser
 		CommandLineParser parser = new DefaultParser();
@@ -62,26 +71,38 @@ public class Server {
 			help(options);
 		}
 
+		if (cmd.hasOption("rs")) {
+
+			try {
+				for (String remoteServer : cmd.getOptionValues("rs")) {
+					String[] splitStr = remoteServer.split(":");
+					if (splitStr.length == 3) {
+						int serverPort;
+						int serverLag;
+						String serverHost;
+						serverHost = splitStr[0];
+						serverPort = Integer.parseInt(splitStr[1]);
+						serverLag = Integer.parseInt(splitStr[2]);
+						Settings.ipPorts.add(new IpPortLagTriplet(serverHost, serverPort, serverLag));
+						log.debug("Remote Server " + serverHost + " port " + serverPort + " with lag " + serverLag);
+
+					} else {
+						throw new Exception("Incorrect IP Port Lag pair specified");
+					}
+				}
+			} catch (NumberFormatException e) {
+				log.debug("Error Parsing Port Number");
+			} catch (Exception e) {
+				log.error(e.getMessage());
+			}
+		}
+
 		if (cmd.hasOption("lp")) {
 			try {
 				int port = Integer.parseInt(cmd.getOptionValue("lp"));
 				Settings.setLocalPort(port);
 			} catch (NumberFormatException e) {
 				log.info("-lp requires a port number, parsed: " + cmd.getOptionValue("lp"));
-				help(options);
-			}
-		}
-
-		if (cmd.hasOption("rh")) {
-			Settings.setRemoteHostname(cmd.getOptionValue("rh"));
-		}
-
-		if (cmd.hasOption("rp")) {
-			try {
-				int port = Integer.parseInt(cmd.getOptionValue("rp"));
-				Settings.setRemotePort(port);
-			} catch (NumberFormatException e) {
-				log.error("-rp requires a port number, parsed: " + cmd.getOptionValue("rp"));
 				help(options);
 			}
 		}
@@ -105,10 +126,6 @@ public class Server {
 		if (cmd.hasOption("lh")) {
 			Settings.setLocalHostname(cmd.getOptionValue("lh"));
 		}
-
-		if (cmd.hasOption("s")) {
-			Settings.setSecret(cmd.getOptionValue("s"));
-		}
 		if (cmd.hasOption("lg")) {
 			try {
 				int lag = Integer.parseInt(cmd.getOptionValue("lg"));
@@ -122,7 +139,6 @@ public class Server {
 		log.info("starting server");
 
 		// Make the Consumer Node
-
 		Thread node = new Thread(new Node(queue));
 		node.start();
 

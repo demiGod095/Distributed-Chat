@@ -3,10 +3,15 @@ package activitystreamer.util;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * The settings class, with most of the code coming from Aaron Harwoods assignment from distributed systems last year.
+ *
+ */
 public class Settings {
 	private static final Logger log = LogManager.getLogger();
 	private static SecureRandom random = new SecureRandom();
@@ -15,13 +20,16 @@ public class Settings {
 	private static String remoteHostname = null;
 	private static int remotePort = 3780;
 	public static int LAG = 100; // milliseconds
-
+	public static ArrayList<IpPortLagTriplet> ipPorts = new ArrayList<IpPortLagTriplet>(); 
 	private static int activityInterval = 5000; // milliseconds
-	private static String secret = null;
-	private static String username = "anonymous";
+	private static String username = "";
 
 	public static int getLocalPort() {
 		return localPort;
+	}
+	
+	public static ArrayList<IpPortLagTriplet> getIpPorts() {
+		return ipPorts;
 	}
 
 	public static void setLocalPort(int localPort) {
@@ -66,14 +74,6 @@ public class Settings {
 
 	public static void setActivityInterval(int activityInterval) {
 		Settings.activityInterval = activityInterval;
-	}
-
-	public static String getSecret() {
-		return secret;
-	}
-
-	public static void setSecret(String s) {
-		secret = s;
 	}
 
 	public static String getUsername() {

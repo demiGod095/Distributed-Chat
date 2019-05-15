@@ -12,13 +12,18 @@ import org.apache.logging.log4j.Logger;
 import activitystreamer.client.ClientSkeleton;
 import activitystreamer.util.Settings;
 
+/** A Class representing the entry point for our client.
+ *  This code was adapted from Aaron Harwoods code
+ *  For the activity Streamer for COMP90015 last year.
+ *
+ */
 public class Client {
 
 	private static final Logger log = LogManager.getLogger();
 
 	private static void help(Options options) {
-		String header = "An ActivityStream Client for Unimelb COMP90015\n\n";
-		String footer = "\ncontact aharwood@unimelb.edu.au for issues.";
+		String header = "An Chat Client for Demonstrating GHS algorithm\n\n";
+		String footer = "\ncontact phudgell@student.unimelb.edu.au for issues.";
 		HelpFormatter formatter = new HelpFormatter();
 		formatter.printHelp("ActivityStreamer.Client", header, options, footer, true);
 		System.exit(-1);
@@ -32,7 +37,6 @@ public class Client {
 		options.addOption("u", true, "username");
 		options.addOption("rp", true, "remote port number");
 		options.addOption("rh", true, "remote hostname");
-		options.addOption("s", true, "secret for username");
 
 		// build the parser
 		CommandLineParser parser = new DefaultParser();
@@ -47,6 +51,12 @@ public class Client {
 		if (cmd.hasOption("rh")) {
 			Settings.setRemoteHostname(cmd.getOptionValue("rh"));
 		}
+		if (cmd.hasOption("u")) {
+			Settings.setUsername(cmd.getOptionValue("u"));
+		} else {
+			log.error("No Username Supplied. Exiting");
+			System.exit(-1);
+		}
 
 		if (cmd.hasOption("rp")) {
 			try {
@@ -57,11 +67,6 @@ public class Client {
 				help(options);
 			}
 		}
-
-		if (cmd.hasOption("s")) {
-			Settings.setSecret(cmd.getOptionValue("s"));
-		}
-
 		if (cmd.hasOption("u")) {
 			Settings.setUsername(cmd.getOptionValue("u"));
 		}

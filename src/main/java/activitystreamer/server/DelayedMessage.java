@@ -1,26 +1,34 @@
 package activitystreamer.server;
 
-import org.json.simple.JSONObject;
+import java.io.PrintWriter;
 
-public class DelayedMessage implements Runnable{
-	private JSONObject jsonMessage;
-	int lag;
-	private Connection connection;
-	
-	DelayedMessage(JSONObject message, int lag, Connection connection) {
-		jsonMessage = message;
+/**
+ * A class used by the control, representing a delayed message.
+ * @author Patrick
+ *
+ */
+public class DelayedMessage implements Runnable {
+
+	private PrintWriter pw;
+	private String msg;
+	private int lag;
+
+	public DelayedMessage(PrintWriter printWrite, String message, int lag) {
+		pw = printWrite;
+		msg = message;
 		this.lag = lag;
-		this.connection = connection;
 	}
-	
-	public void run () {
+
+	@Override
+	public void run() {
 		try {
 			Thread.sleep(lag);
-			connection.writeMsg(jsonMessage.toJSONString());
+			pw.println(msg);
+			pw.flush();
 		} catch (InterruptedException e) {
-			System.out.println("Interrupted Exception");
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		return;
 	}
 }

@@ -33,6 +33,8 @@ public class ClientSkeleton extends Thread {
 
 	private Boolean connected = false;
 
+	private String messages;
+
 	private TextFrame textFrame;
 
 	private Socket clientSocket;
@@ -44,19 +46,8 @@ public class ClientSkeleton extends Thread {
 		return clientSolution;
 	}
 
-	private void processReply(String reply) {
-		JSONParser parse = new JSONParser();
-		try {
-			Object obj = parse.parse(reply);
-			JSONObject jobj = (JSONObject) obj;
-		} catch (ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-	}
-
 	public ClientSkeleton() {
+		messages = "";
 		textFrame = new TextFrame();
 		start();
 		// Initalise the socket
@@ -95,6 +86,10 @@ public class ClientSkeleton extends Thread {
 		sendJsonOnSocket(obj);
 	}
 
+	/**
+	 * Updates the window with the incoming text, with the user name appended to the
+	 * left hand side
+	 */
 	public boolean updateIncomingData() {
 		if (!connected) {
 			return false;
@@ -105,36 +100,13 @@ public class ClientSkeleton extends Thread {
 				JSONParser parse = new JSONParser();
 				JSONObject obj;
 				try {
-					System.out.println("RECEIVED MESSAGE " + receivedMessage);
 					obj = (JSONObject) parse.parse(receivedMessage);
-					System.out.println("Received Object " + obj);
 					if (obj.containsKey(Strings.MESSAGE)) {
-						textFrame.setOutputText(obj.get(Strings.MESSAGE).toString());
-					}
-
-					if (obj.containsKey("command")) {
-						String command = (String) obj.get("command");
-						if (command.equals("REDIRECT")) {
-							log.debug("recieved redirect");
-							String newHost = (String) obj.get("hostname");
-							int newPort = toIntExact((Long) obj.get("port"));
-							try {
-								clientSocket.close();
-								clientSocket = new Socket(newHost, newPort);
-								output = clientSocket.getOutputStream();
-								pwrite = new PrintWriter(output, true);
-								input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-							} catch (UnknownHostException e) {
-								log.error("Unknown Host Error " + Settings.getRemoteHostname());
-								e.printStackTrace();
-								return true;
-							} catch (IOException e) {
-								log.error("IO Exception");
-								e.printStackTrace();
-								return true;
-							}
-						}
-
+						JSONObject jobj2 = (JSONObject) obj.get(Strings.MESSAGE);
+						String message = (String) jobj2.get(Strings.MESSAGE);
+						String username = (String) jobj2.get(Strings.USERNAME);
+						messages = messages + username + ": " + message + "\n";
+						textFrame.setOutputText(messages);
 					}
 				} catch (ParseException e) {
 					e.printStackTrace();
@@ -149,13 +121,29 @@ public class ClientSkeleton extends Thread {
 		return false;
 	}
 
-	
+	/**
+	 * Sends a message, contained in the message string. This class also appends the
+	 * username into the MESSAGE json object sent as well.
+	 * 
+	 * @param message
+	 */
+	public void sendMessage(String message) {
+		message = message.trim().replaceAll("\r", "").replaceAll("\n", "").replaceAll("\t", "");
+		JSONObject msg = new JSONObject();
+		JSONObject level2 = new JSONObject();
+		level2.put(Strings.MESSAGE, message);
+		level2.put(Strings.USERNAME, Settings.getUsername());
+		msg.put(Strings.MESSAGE, level2);
+		sendJsonOnSocket(msg);
+	}
+
+	/** Sends a wakeup message, which starts the GHS algorithm */
 	public void sendWakeup() {
 		JSONObject jobj = new JSONObject();
 		jobj.put(Strings.WAKE_UP, Strings.WAKE_UP);
 		sendJsonOnSocket(jobj);
 	}
-	
+
 	public void disconnect() {
 		try {
 			connected = false;

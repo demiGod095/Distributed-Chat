@@ -2,46 +2,59 @@ package activitystreamer.server;
 
 import java.util.UUID;
 
-/** Contains the data for a graph edge, representing a connection to another server */
-public class ServerEdge extends Edge implements Comparable <ServerEdge>{
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+/**
+ * Contains the data for a graph edge, representing a connection to another
+ * server. This contains a weight value, along with an Identifier for the
+ * fragment, alongside a branch state.
+ */
+public class ServerEdge extends Edge implements Comparable<ServerEdge> {
+	private static final Logger log = LogManager.getLogger();
 
 	private Identifier ident;
-	int lag;
+	private int weight;
 	private EdgeState edgeState;
-	
+
 	public ServerEdge(UUID uuid1, UUID uuid2, int lag) {
 		ident = new Identifier(uuid1, uuid2);
-		this.lag = lag;
+		this.weight = lag;
 		edgeState = EdgeState.Basic;
 	}
-	
+
 	public Identifier getIdentifier() {
 		return ident;
 	}
-	
-	public void setLag(int lag) {
-		this.lag = lag;
+
+	public void setWeight(int weight) {
+		this.weight = weight;
 	}
-	
-	public int getLag() {
-		return lag;
+
+	public int getWeight() {
+		return weight;
 	}
-	
+
 	public void setEdgeState(EdgeState state) {
+		if (state == EdgeState.Branch) {
+			log.info("A MST Branch between " + ident.getUUID1().toString() + " and  " + ident.getUUID2().toString()
+					+ " has been made, or this node has become aware of it");
+		}
 		edgeState = state;
 	}
-	
+
 	public EdgeState getEdgeState() {
 		return edgeState;
 	}
 
 	@Override
 	public int compareTo(ServerEdge arg0) {
-		// TODO Auto-generated method stub
-		int lagCmp = Integer.compare(lag, arg0.lag);
-		if (lagCmp == 0) {
+		// Compares with the branches weight. If we have a collision, we compare the
+		// branches identifier.
+		int weightCmp = Integer.compare(weight, arg0.weight);
+		if (weightCmp == 0) {
 			return ident.compareTo(arg0.getIdentifier());
 		}
-		return lagCmp;
-	} 
+		return weightCmp;
+	}
 }
